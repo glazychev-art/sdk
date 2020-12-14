@@ -24,10 +24,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/opentracing/opentracing-go"
-	opentracinglog "github.com/opentracing/opentracing-go/log"
-
-	"github.com/networkservicemesh/sdk/pkg/tools/jaeger"
 	"github.com/networkservicemesh/sdk/pkg/tools/log"
 )
 
@@ -38,8 +34,7 @@ const (
 
 // spanlogger - provides a way to log via opentracing spans
 type spanLogger struct {
-	span    opentracing.Span
-	entries map[interface{}]interface{}
+	span    Span
 }
 
 func (s *spanLogger) Info(v ...interface{}) {
@@ -100,26 +95,19 @@ func (s *spanLogger) Object(k, v interface{}) {
 			} else {
 				msg = fmt.Sprint(v)
 			}
-
-			s.span.LogFields(opentracinglog.Object(k.(string), limitString(msg)))
-			for k, v := range s.entries {
-				s.span.LogKV(k, v)
-			}
+			s.span.LogObject(k, msg)
 		}
 	}
 }
 
 func (s *spanLogger) WithField(key, value interface{}) log.Logger {
-	data := make(map[interface{}]interface{}, len(s.entries)+1)
-	for k, v := range s.entries {
-		data[k] = v
+	if s.span != nil {
+		newlog := &spanLogger{
+			span: s.span.WithField(key, value),
+		}
+		return newlog
 	}
-	data[key] = value
-	newlog := &spanLogger{
-		span:    s.span,
-		entries: data,
-	}
-	return newlog
+	return s
 }
 
 func (s *spanLogger) log(level string, v ...interface{}) {
@@ -129,23 +117,21 @@ func (s *spanLogger) log(level string, v ...interface{}) {
 func (s *spanLogger) logf(level, format string, v ...interface{}) {
 	if s.span != nil {
 		if v != nil {
-			s.span.LogFields(opentracinglog.String("event", level), opentracinglog.String("message", fmt.Sprintf(format, v...)))
-			for k, v := range s.entries {
-				s.span.LogKV(k, v)
-			}
+			s.span.Log(level, format, v...)
 		}
 	}
 }
 
 // FromContext - creates a new spanLogger from context and operation
-func FromContext(ctx context.Context, operation string) (context.Context, log.Logger, opentracing.Span, func()) {
-	var span opentracing.Span
-	if jaeger.IsOpentracingEnabled() {
-		span, ctx = opentracing.StartSpanFromContext(ctx, operation)
+func FromContext(ctx context.Context, operation string) (context.Context, log.Logger, Span, func()) {
+	var span Span
+	if log.IsOpentracingEnabled() {
+		ctx, span = newOTSpan(ctx, operation, log.Fields(ctx))
+	} else if log.IsOpentelemetryEnabled() {
+		ctx, span = newOTELSpan(ctx, operation, log.Fields(ctx))
 	}
 	newLog := &spanLogger{
 		span:    span,
-		entries: make(map[interface{}]interface{}),
 	}
 	return ctx, newLog, span, func() { newLog.finish() }
 }

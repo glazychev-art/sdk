@@ -21,6 +21,7 @@ package nsmgr
 
 import (
 	"context"
+	"github.com/networkservicemesh/sdk/pkg/networkservice/common/metrics"
 	"time"
 
 	"google.golang.org/grpc"
@@ -113,6 +114,7 @@ func NewServer(ctx context.Context, nsmRegistration *registryapi.NetworkServiceE
 		recvfd.NewServer(), // Receive any files passed
 		interpose.NewServer(&interposeRegistryServer),
 		filtermechanisms.NewServer(&urlsRegistryServer),
+		metrics.NewServer(),
 		connect.NewServer(ctx,
 			client.NewClientFactory(
 				nsmRegistration.Name,

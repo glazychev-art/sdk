@@ -24,7 +24,7 @@ import (
 )
 
 // RegisterHealthServices registers grpc health probe for each passed service
-func RegisterHealthServices(s *grpc.Server, services ...interface{}) {
+func RegisterHealthServices(s grpc.ServiceRegistrar, services ...interface{}) {
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	for _, service := range services {

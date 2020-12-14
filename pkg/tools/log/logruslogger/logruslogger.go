@@ -22,12 +22,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/networkservicemesh/sdk/pkg/tools/log/spanlogger"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 
@@ -94,15 +94,17 @@ func fromContext(ctx context.Context) *traceCtxInfo {
 
 type logrusLogger struct {
 	entry     *logrus.Entry
-	span      opentracing.Span
+	span      spanlogger.Span
 	info      *traceCtxInfo
 	operation string
 }
 
 func (s *logrusLogger) getSpan() string {
-	spanStr := fmt.Sprintf("%v", s.span)
-	if len(spanStr) > 0 && spanStr != "{}" && s.span != nil {
-		return fmt.Sprintf(" span=%v", spanStr)
+	if s.span != nil {
+		spanStr := s.span.ToString()
+		if len(spanStr) > 0 && spanStr != "{}" {
+			return fmt.Sprintf(" span=%v", spanStr)
+		}
 	}
 	return ""
 }
@@ -195,7 +197,7 @@ func New(ctx context.Context) log.Logger {
 
 // FromSpan - creates a new logruslogger from context, operation and span
 // and returns context with it, logger, and a function to defer
-func FromSpan(ctx context.Context, span opentracing.Span, operation string) (context.Context, log.Logger, func()) {
+func FromSpan(ctx context.Context, span spanlogger.Span, operation string) (context.Context, log.Logger, func()) {
 	entry := logrus.WithTime(time.Now()).WithFields(log.Fields(ctx))
 
 	var info *traceCtxInfo

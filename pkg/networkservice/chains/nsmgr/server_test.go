@@ -20,6 +20,8 @@ package nsmgr_test
 import (
 	"context"
 	"fmt"
+	"github.com/networkservicemesh/sdk/pkg/tools/log"
+	"github.com/networkservicemesh/sdk/pkg/tools/opentelemetry"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -333,8 +335,16 @@ func TestNSMGR_ConnectToDeadNSE(t *testing.T) {
 func TestNSMGR_LocalUsecase(t *testing.T) {
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*500)
 	defer cancel()
+
+	log.EnableTracing(true)
+
+	shutdown, _ := opentelemetry.Init(ctx, opentelemetry.DefaultAgentAddr, "NSMGR_opentelemetry")
+	defer shutdown()
+
+	//cl := jaeger.InitJaeger(ctx, "NSMGR_opentracing")
+	//defer func() { cl.Close() }()
 
 	domain := sandbox.NewBuilder(t).
 		SetNodesCount(1).
